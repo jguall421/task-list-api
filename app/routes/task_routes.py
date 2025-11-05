@@ -32,7 +32,7 @@ def create_task():
 #Get Tasks: Getting Saved Tasks 200
 @task_bp.get("")
 def get_all_tasks():
-    query = db.select(Task).order_by(Task.id)
+    query = db.select(Task)
 
     title_param = request.args.get("title")
     if title_param:
@@ -41,6 +41,13 @@ def get_all_tasks():
     description_param = request.args.get("description")
     if description_param:
         query = query.where(Task.description == description_param)
+    
+    sort_param = request.args.get("sort", "asc")
+    
+    if sort_param == "desc":
+        query = query.order_by(Task.title.desc())
+    else:
+        query = query.order_by(Task.title.asc())
 
 
     tasks = db.session.scalars(query)
