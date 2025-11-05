@@ -1,6 +1,6 @@
 from flask import Blueprint, abort, make_response, Response, request
 from app.db import db
-
+from datetime import datetime
 from app.models.task import Task
 
 task_bp = Blueprint("task_bp", __name__, url_prefix= "/tasks")
@@ -97,3 +97,61 @@ def validate_task(id):
         abort(make_response(not_found, 404))
     
     return task
+
+#Mark Complete on an Incomplete Task
+#PATCH request to /tasks/1/mark_complete: 204 No Content
+@task_bp.patch("/<task_id>/mark_complete")
+def mark_complete_on_incomplete_task(task_id):
+    task = validate_task(task_id)
+    task.completed_at =  datetime.now()
+    db.session.commit()
+    return Response(status=204, mimetype="application/json")
+
+# #Mark Incomplete on a Completed Task
+# #PATCH request to /tasks/1/mark_incomplete
+@task_bp.patch("/<task_id>/mark_incomplete")
+def mark_incomplete_on_complete_task(task_id):
+    task = validate_task(task_id)
+    task.completed_at = None
+    db.session.commit()
+    return Response(status=204, mimetype="application/json")
+
+
+# #Mark Complete on a Completed Task
+# #PATCH request to /tasks/1/mark_complete: 204 OK
+@task_bp.patch("/<task_id>/mark_complete")
+def mark_complete_on_completed_task(task_id):
+    task = validate_task(task_id)
+    if task.completed_at is None:
+        task.completed_at = datetime.now()
+    db.session.commit()
+    return Response(status=204, mimetype="application/json")
+
+# #Mark Incomplete on an Incomplete Task
+# #PATCH request to /tasks/1/mark_incomplete
+@task_bp.patch("/<task_id>/mark_incomplete")
+def mark_incomplete_on_incomplete_task(task_id):
+    task = validate_task(task_id)
+    if task.completed_at is not None:
+        task.completed_at = None 
+    db.session.commit()
+    return Response(status=204, mimetype="application/json")
+
+
+# #Mark Complete and Mark Incomplete for Missing Tasks
+# #PATCH request to /tasks/1/mark_complete or a PATCH request to /tasks/1/mark_incomplete: 404 Not Found
+@task_bp.patch("/tasks/<task_id>/mark_complete")
+def test_mark_complete_missing_task(task_id):
+    task = validate_task(task_id)
+    if task.completed_at is None:
+        task.completed_at = datetime.now()
+        db.session.commit()
+    return Response(status=204, mimetype="application/json")
+    
+@task_bp.patch("/tasks/<task_id>/mark_incomplete")
+def mark_incomplete_missing_task(task_id):
+    task = validate_task(task_id)
+    if task.completed_at is not None:
+        task.completed_at = None
+        db.session.commit()
+    return Response(status=204, mimetype="application/json")
