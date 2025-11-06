@@ -1,8 +1,8 @@
 from flask import Flask
 from .db import db, migrate
-from .models import task, goal
-from .routes.task_routes import task_bp
-from .routes.goal_routes import goal_bp
+#from .models import task, goal
+from .routes.task_routes import bp as task_bp
+from .routes.goal_routes import bp as goal_bp
 import os
 
 def create_app(config=None):

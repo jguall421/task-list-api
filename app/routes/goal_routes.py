@@ -1,11 +1,14 @@
 from flask import Blueprint, abort, make_response, Response, request
 from app.db import db
 from app.models.goal import Goal
+from app.models.task import Task
+from .route_utilities import create_model, get_models_with_filters, validate_model
 
-goal_bp = Blueprint("goal_bp", __name__, url_prefix= "/goals")
+
+bp = Blueprint("goal_bp", __name__, url_prefix= "/goals")
 #Create a Goal: Invalid Goal With Missing Title: 400
 #Create a Goal: Valid Goal: 201
-@goal_bp.post("")
+@bp.post("")
 def create_new_goal():
     request_body = request.get_json()
     if not "title" in request_body:
@@ -13,31 +16,12 @@ def create_new_goal():
         "details": "Invalid data"
     }, 400
 
-    try:
-        new_goal = Goal.from_dict(request_body)
-
-    except KeyError as error:
-        response = {"message": f"Invalid request: missing {error.args[0]}"}
-        abort(make_response(response, 400))
-
-    db.session.add(new_goal)
-    db.session.commit()
-    return new_goal.to_dict(), 201
-
+    return create_model(Goal, request_body)
 #Get Goals: Getting Saved Goals:200
-@goal_bp.get("")
+@bp.get("")
 def get_all_goals():
-    query = db.select(Goal).order_by(Goal.id)
+    return get_models_with_filters(Goal, request.args)
 
-    title_param = request.args.get("title")
-    if title_param:
-        query = query.where(Goal.title == title_param)
-    goals = db.session.scalars(query)
-    goals_response = []
-    for goal in goals:
-        goals_response.append(goal.to_dict())
-
-    return goals_response
 
 # #Get Goals: No Saved Goals:  200
 
@@ -48,15 +32,15 @@ def get_all_goals():
 
 
 #Get One Goal: One Saved Goal: 200
-@goal_bp.get("/<goal_id>")
+@bp.get("/<goal_id>")
 def get_one_saved_goal(goal_id):
-    goal = validate_task(goal_id)
+    goal = validate_model(Goal, goal_id)
     return goal.to_dict()
 
 #Update Goal: 204
-@goal_bp.put("/<goal_id>")
+@bp.put("/<goal_id>")
 def update_goal(goal_id):
-    goal = validate_task(goal_id)
+    goal = validate_model(Goal, goal_id)
     request_body = request.get_json()
 
     goal.title = request_body["title"]
@@ -64,28 +48,105 @@ def update_goal(goal_id):
     return Response(status=204, mimetype="application/json")
 
 #Delete Goal: Deleting a Goal: 204
-@goal_bp.delete("/<goal_id>")
+@bp.delete("/<goal_id>")
 def delete_goal(goal_id):
-    goal = validate_task(goal_id)
+    goal = validate_model(Goal, goal_id)
     db.session.delete(goal)
     db.session.commit()
     return Response(status=204, mimetype="application/json")
 
 
-#No matching Goal: Get, Update, and Delete:404
-def validate_task(id):
-    try:
-        id = int(id)
-    except ValueError:
-        invalid = {"message": f"Goal id({id}) is invalid."}
+# #Sending a List of Task IDs to a Goal: 200 OK
+# @bp.post("/<goal_id>/tasks")
+# def create_tasks_with_goal(goal_id):
+#     goal = validate_model(Goal, goal_id)
+#     request_body = request.get_json()
+#     request_body["goal_id"] = goal.id
+#     return create_model(Task, request_body)
+# #Getting Tasks of One Goal: 200 OK
+# @bp.get("/<goal_id>/tasks")
+# def get_tasks_by_goal(goal_id):
+#     goal = validate_model(Goal, goal_id)
+#     response = [task.to_dict() for task in goal.tasks]
+#     return response
+# #Getting Tasks of One Goal: No Matching Tasks: 200 OK
+# @bp.get("/<goal_id>/tasks")
+# def get_tasks_for_specific_goal_no_matching_tasks(goal_id):
+#     pass
 
-        abort(make_response(invalid, 400))
+# #Getting Tasks of One Goal: No Matching Goal: 404 Not Found
+# @bp.get("/<goal_id>/tasks")
+# def get_tasks_for_specific_goal_no_goal():
+#     pass
 
-    query = db.select(Goal).where(Goal.id == id)
-    goal = db.session.scalar(query)
+#POST /goals/<goal_id>/tasks
+@bp.post("/<goal_id>/tasks")
+def create_tasks_with_goal(goal_id):
+    goal = validate_model(Goal, goal_id)
+    request_body = request.get_json()
+    task_ids = request_body.get("task_ids", [])
 
-    if not goal:
-        not_found = {"message": f"Goal with id({id}) not found."}
-        abort(make_response(not_found, 404))
-    
-    return goal
+    for task in goal.tasks:
+        task.goal_id = None
+
+    tasks = []
+    for task_id in task_ids:
+        task = validate_model(Task, task_id)
+        task.goal_id = goal.id
+        tasks.append(task)
+
+    db.session.commit()
+
+    response = {
+        "id": goal.id,
+        "task_ids": [task.id for task in tasks]
+    }
+    return response, 200
+
+# GET /goals/<goal_id>/tasks
+# Case 1: Goal exists and has tasks
+@bp.get("/<goal_id>/tasks")
+def get_tasks_by_goal(goal_id):
+    goal = validate_model(Goal, goal_id)
+    result = {
+        "id": goal.id,
+        "title": goal.title,
+        "tasks": []
+    }
+
+    for task in goal.tasks:
+        task_dict = task.to_dict()  # returns id, title, description, is_complete
+        if task.goal_id:
+            task_dict.update({"goal_id": task.goal_id})
+        result["tasks"].append(task_dict)
+
+    return result
+
+
+# GET /goals/<goal_id>/tasks/no_tasks
+# Case 2: Goal exists but has no tasks
+@bp.get("/<goal_id>/tasks/no_tasks")
+def get_tasks_for_goal_no_tasks(goal_id):
+    goal = validate_model(Goal, goal_id)
+    # tasks will be empty
+    response = {
+        "id": goal.id,
+        "title": goal.title,
+        "tasks": []
+    }
+    return response, 200
+
+
+# GET /goals/<goal_id>/tasks/missing_goal
+# Case 3: Goal does not exist
+@bp.get("/<goal_id>/tasks/missing_goal")
+def get_tasks_for_missing_goal(goal_id):
+    # This will automatically return 404 via validate_model
+    goal = validate_model(Goal, goal_id)
+    # If somehow reached here, just return empty tasks
+    response = {
+        "id": goal.id,
+        "title": goal.title,
+        "tasks": []
+    }
+    return response, 200
