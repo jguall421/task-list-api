@@ -103,50 +103,43 @@ def create_tasks_with_goal(goal_id):
     }
     return response, 200
 
+@bp.get("/<goal_id>/tasks")
+def get_tasks_for_missing_goal(goal_id):
+    goal = validate_model(Goal, goal_id)
+    response = goal.to_dict()
+
+    if not goal.tasks:
+        response["tasks"] = []
+    return response, 200
+
 # GET /goals/<goal_id>/tasks
 # Case 1: Goal exists and has tasks
-@bp.get("/<goal_id>/tasks")
-def get_tasks_by_goal(goal_id):
-    goal = validate_model(Goal, goal_id)
-    result = {
-        "id": goal.id,
-        "title": goal.title,
-        "tasks": []
-    }
-
-    for task in goal.tasks:
-        task_dict = task.to_dict()  # returns id, title, description, is_complete
-        if task.goal_id:
-            task_dict.update({"goal_id": task.goal_id})
-        result["tasks"].append(task_dict)
-
-    return result
+# @bp.get("/<goal_id>/tasks")
+# def get_tasks_by_goal(goal_id):
+#     goal = validate_model(Goal, goal_id)
+#     return goal.to_dict(), 200
 
 
-# GET /goals/<goal_id>/tasks/no_tasks
-# Case 2: Goal exists but has no tasks
-@bp.get("/<goal_id>/tasks/no_tasks")
-def get_tasks_for_goal_no_tasks(goal_id):
-    goal = validate_model(Goal, goal_id)
-    # tasks will be empty
-    response = {
-        "id": goal.id,
-        "title": goal.title,
-        "tasks": []
-    }
-    return response, 200
+# # GET /goals/<goal_id>/tasks/no_tasks
+# # Case 2: Goal exists but has no tasks
+# @bp.get("/<goal_id>/tasks/no_tasks")
+# def get_tasks_for_goal_no_tasks(goal_id):
+#     goal = validate_model(Goal, goal_id)
+#     return goal.to_dict(), 200
 
 
-# GET /goals/<goal_id>/tasks/missing_goal
-# Case 3: Goal does not exist
-@bp.get("/<goal_id>/tasks/missing_goal")
-def get_tasks_for_missing_goal(goal_id):
-    # This will automatically return 404 via validate_model
-    goal = validate_model(Goal, goal_id)
-    # If somehow reached here, just return empty tasks
-    response = {
-        "id": goal.id,
-        "title": goal.title,
-        "tasks": []
-    }
-    return response, 200
+# # GET /goals/<goal_id>/tasks/missing_goal
+# # Case 3: Goal does not exist
+# @bp.get("/<goal_id>/tasks/missing_goal")
+# def get_tasks_for_missing_goal(goal_id):
+#     goal = validate_model(Goal, goal_id)
+#     response = goal.to_dict()
+
+#     if not goal.tasks:
+#         response["tasks"] = []
+#     # response = {
+#     #     "id": goal.id,
+#     #     "title": goal.title,
+#     #     "tasks": []
+#     # }
+#     return response, 200

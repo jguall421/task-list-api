@@ -14,7 +14,6 @@ def validate_model(cls, model_id):
     if not model:
         response = {"message": f"{cls.__name__} with id({model_id}) not found."}
         abort(make_response(response, 404))
-    
     return model
 
 def create_model(cls, model_data, status_code=201):
@@ -27,7 +26,6 @@ def create_model(cls, model_data, status_code=201):
     
     db.session.add(new_model)
     db.session.commit()
-
     return new_model.to_dict(), status_code
 
 def get_models_with_filters(cls, filters=None, sort=None):
@@ -37,7 +35,6 @@ def get_models_with_filters(cls, filters=None, sort=None):
         for attribute, value in filters.items():
             if hasattr(cls, attribute):
                 query = query.where(getattr(cls, attribute).ilike(f"%{value}%"))
-        # Add optional sorting
     if sort == "desc":
         query = query.order_by(cls.title.desc())
     else:
